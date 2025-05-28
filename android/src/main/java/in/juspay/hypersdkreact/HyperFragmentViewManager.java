@@ -60,6 +60,11 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     }
 
     @Override
+    public void receiveCommand(@NonNull FrameLayout root, int commandId, @Nullable ReadableArray args) {
+        receiveCommand(root,Integer.toString(commandId),args);
+    }
+    
+    @Override
     public void receiveCommand(@NonNull FrameLayout root, String commandId, @Nullable ReadableArray args) {
         super.receiveCommand(root, commandId, args);
 
