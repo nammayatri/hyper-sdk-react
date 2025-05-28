@@ -225,7 +225,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                 return;
             }
 
-            hyperServices = new HyperServices(activity);
+            hyperServices = new MobilityServices(activity);
             hyperServicesReference = new WeakReference<>(hyperServices);
 
             requestPermissionsResultDelegate.set(hyperServices);

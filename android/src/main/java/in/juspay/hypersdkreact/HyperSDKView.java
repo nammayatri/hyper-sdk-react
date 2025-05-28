@@ -16,27 +16,27 @@ public class HyperSDKView extends FrameLayout {
 
     public HyperSDKView(@NonNull ThemedReactContext context) {
         super(context);
-        this.hyperServices = new HyperServices(context);
+        this.hyperServices = new MobilityServices(context);
     }
 
     public HyperSDKView(@NonNull Context context) {
         super(context);
-        this.hyperServices = new HyperServices(context);
+        this.hyperServices = new MobilityServices(context);
     }
 
     public HyperSDKView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        this.hyperServices = this.hyperServices = new HyperServices(context);;
+        this.hyperServices = new MobilityServices(context);
     }
 
     public HyperSDKView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        this.hyperServices = new HyperServices(context);
+        this.hyperServices = new MobilityServices(context);
     }
 
     public HyperSDKView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        this.hyperServices = new HyperServices(context);
+        this.hyperServices = new MobilityServices(context);
     }
 
     public HyperServices getHyperServices() {
