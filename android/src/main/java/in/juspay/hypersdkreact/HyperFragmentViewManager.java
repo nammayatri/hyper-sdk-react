@@ -10,10 +10,15 @@ package in.juspay.hypersdkreact;
 import android.view.Choreographer;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.OnApplyWindowInsetsListener;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -34,10 +39,13 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     private static final String NAME = "HyperFragmentViewManager";
     private static final int COMMAND_PROCESS = 175;
 
+    private Choreographer.FrameCallback frameCallback = null;
+
     private final ReactApplicationContext reactContext;
 
     public HyperFragmentViewManager(ReactApplicationContext reactContext) {
         this.reactContext = reactContext;
+
     }
 
 
@@ -50,7 +58,17 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     @NonNull
     @Override
     protected FrameLayout createViewInstance(@NonNull ThemedReactContext context) {
-        return new FrameLayout(context);
+        FrameLayout view = new FrameLayout(context);
+        ViewCompat.setOnApplyWindowInsetsListener(view, new OnApplyWindowInsetsListener() {
+            @NonNull
+            @Override
+            public WindowInsetsCompat onApplyWindowInsets(@NonNull View v, @NonNull WindowInsetsCompat insets) {
+                Insets inset = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                v.setPadding(inset.left,inset.top,inset.right,inset.bottom);
+                return insets;
+            }
+        });
+        return view;
     }
 
     @Nullable
@@ -63,7 +81,13 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     public void receiveCommand(@NonNull FrameLayout root, int commandId, @Nullable ReadableArray args) {
         receiveCommand(root,Integer.toString(commandId),args);
     }
-    
+
+    @Override
+    public void onDropViewInstance(@NonNull FrameLayout view) {
+        super.onDropViewInstance(view);
+        if (frameCallback != null) Choreographer.getInstance().removeFrameCallback(frameCallback);
+    }
+
     @Override
     public void receiveCommand(@NonNull FrameLayout root, String commandId, @Nullable ReadableArray args) {
         super.receiveCommand(root, commandId, args);
@@ -123,7 +147,8 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     }
 
     private void setupLayout(View view) {
-        Choreographer.getInstance().postFrameCallback(new Choreographer.FrameCallback() {
+        if (frameCallback != null) Choreographer.getInstance().removeFrameCallback(frameCallback);
+        frameCallback = new Choreographer.FrameCallback() {
             @Override
             public void doFrame(long frameTimeNanos) {
                 try {
@@ -141,7 +166,8 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
                     );
                 }
             }
-        });
+        };
+        Choreographer.getInstance().postFrameCallback(frameCallback);
     }
 
     private void manuallyLayoutChildren(@NonNull View view) {
