@@ -18,6 +18,7 @@ import {
 export interface HyperFragmentViewPropsPub {
   height: DimensionValue;
   width?: DimensionValue;
+  triggerProcess: boolean;
   namespace: string;
   payload: string;
   onEvent?: (data: HyperEvent) => void;
@@ -67,11 +68,13 @@ const HyperFragmentView: React.FC<HyperFragmentViewProps> = (
 ) => {
   const ref = React.useRef<View | null>(null);
   React.useEffect(() => {
+    if (props.triggerProcess) {
     const viewId = findNodeHandle(ref.current);
     if (viewId) {
-      createFragment(viewId, props.namespace, props.payload);
+        createFragment(viewId, props.namespace, props.payload);
+      }
     }
-  }, [props.namespace, props.payload]);
+  }, [props.namespace, props.payload, props.triggerProcess]);
 
   if (!HyperFragmentViewManager) {
     return null;
