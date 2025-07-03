@@ -68,6 +68,12 @@ public class MobilityServices extends HyperServices {
             @Override
             public List<Class<? extends HyperBridge>> getBridgeClasses() {
                 List<Class<? extends HyperBridge>> bridges = new ArrayList<>();
+                try {
+                    Class<? extends HyperBridge> mainAppBridge = (Class<? extends HyperBridge>) Class.forName("in.juspay.mobility.MainAppBridge");
+                    bridges.add(mainAppBridge);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 return bridges;
             }
         });
