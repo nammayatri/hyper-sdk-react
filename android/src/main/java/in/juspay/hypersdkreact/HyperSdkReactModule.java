@@ -71,10 +71,9 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     private static final RequestPermissionsResultDelegate requestPermissionsResultDelegate = new RequestPermissionsResultDelegate();
     private static final ActivityResultDelegate activityResultDelegate = new ActivityResultDelegate();
 
-    @Nullable
-    private HyperServices hyperServices;
+    HashMap<String, HyperServices> servicesHashMap = new HashMap<>();
 
-    private static WeakReference<HyperServices> hyperServicesReference = new WeakReference<>(null);
+    private static WeakReference<HashMap<String, HyperServices>> servicesHashMapReference = new WeakReference<>(null);;
 
     private final ReactApplicationContext context;
 
@@ -176,8 +175,10 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     }
 
     @Nullable
-    public static HyperServices getHyperServices() {
-        return hyperServicesReference.get();
+    public static HyperServices getHyperServices(String key) {
+        if (key == null) key = "default";
+        HashMap<String, HyperServices> map = servicesHashMapReference.get();
+        return map != null ? map.get(key) : null;
     }
 
     @ReactMethod
@@ -197,8 +198,19 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
         }
     }
 
+    @Nullable
+    private HyperServices getHyperServiceForKey(String key) {
+        if (key == null) {
+            key = "default";
+        }
+        return servicesHashMap.get(key);
+    }
+
     @ReactMethod
-    public void createHyperServices() {
+    public void createHyperServices(@Nullable String key) {
+        if (key == null) {
+            key = "default";
+        }
         synchronized (lock) {
             FragmentActivity activity = (FragmentActivity) getCurrentActivity();
 
@@ -215,7 +227,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
             if (app instanceof ReactApplication) {
                 reactInstanceManager = ((ReactApplication) app).getReactNativeHost().getReactInstanceManager();
             }
-            if (hyperServices != null) {
+            if (getHyperServiceForKey(key) != null) {
                 SdkTracker.trackBootLifecycle(
                         LogConstants.SUBCATEGORY_HYPER_SDK,
                         LogConstants.LEVEL_WARN,
@@ -224,28 +236,34 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                         "hyperServices instance already exists");
                 return;
             }
+            HyperServices hyperServices;
+            if (key.equals("default")) hyperServices = new MobilityServices(activity);
+            else hyperServices = new HyperServices(activity);
+            servicesHashMap.put(key,hyperServices);
+            servicesHashMapReference = new WeakReference<>(servicesHashMap);
 
-            hyperServices = new MobilityServices(activity);
-            hyperServicesReference = new WeakReference<>(hyperServices);
-
-            requestPermissionsResultDelegate.set(hyperServices);
-            activityResultDelegate.set(hyperServices);
+            requestPermissionsResultDelegate.set(servicesHashMap);
+            activityResultDelegate.set(servicesHashMap);
         }
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
-    public boolean onBackPressed() {
+    public boolean onBackPressed(String key) {
         synchronized (lock) {
-            return hyperServices != null && hyperServices.onBackPressed();
+            if (key == null) key = "default";
+            HyperServices hs = servicesHashMap.get(key);
+            return hs != null && hs.onBackPressed();
         }
     }
 
     @ReactMethod
-    public void initiate(String data) {
+    public void initiate(String data, @Nullable String key) {
         synchronized (lock) {
             try {
+                if (key == null) key = "default";
                 JSONObject payload = new JSONObject(data);
                 FragmentActivity activity = (FragmentActivity) getCurrentActivity();
+                HyperServices hyperServices = getHyperServices(key);
 
                 if (activity == null) {
                     SdkTracker.trackBootLifecycle(
@@ -267,6 +285,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                     return;
                 }
 
+                String finalKey = key;
                 hyperServices.initiate(activity, payload, new HyperPaymentsCallbackAdapter() {
                     @Override
                     public void onEvent(JSONObject data, JuspayResponseHandler handler) {
@@ -281,7 +300,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                             wasProcessWithActivity = false;
                             processActivityRef = new WeakReference<>(null);
                         }
-                        sendEventToJS(data);
+                        sendEventToJS(finalKey,data);
                     }
 
                     @Nullable
@@ -331,15 +350,22 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
         return registeredComponents.contains(tag);
     }
 
-    private void sendEventToJS(JSONObject data) {
+    private void sendEventToJS(String key,JSONObject data) {
         DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = getJSModule();
         if (jsModule == null) {
             Handler handler = new Handler();
-            handler.postDelayed(() -> sendEventToJS(data), 200);
+            handler.postDelayed(() -> sendEventToJS(key,data), 200);
             return;
         }
 
-        jsModule.emit(HYPER_EVENT, data.toString());
+        try {
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("key", key);
+            jsonObject.put("data", data);
+            jsModule.emit(HYPER_EVENT, jsonObject.toString());
+        } catch (Exception e) {
+
+        }
     }
 
     private DeviceEventManagerModule.RCTDeviceEventEmitter getJSModule() {
@@ -348,8 +374,9 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     }
 
     @ReactMethod
-    public void process(String data) {
+    public void process(String data, String key) {
         synchronized (lock) {
+            if (key == null) key = "default";
             try {
                 JSONObject payload = new JSONObject(data);
                 FragmentActivity activity = (FragmentActivity) getCurrentActivity();
@@ -363,6 +390,8 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                             "activity is null");
                     return;
                 }
+
+                HyperServices hyperServices = getHyperServiceForKey(key);
 
                 if (hyperServices == null) {
                     SdkTracker.trackBootLifecycle(
@@ -392,9 +421,10 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
 
 
     @ReactMethod
-    public void processWithActivity(String data) {
+    public void processWithActivity(String data, String key) {
         synchronized (lock) {
             try {
+                if (key == null) key = "default";
                 JSONObject payload = new JSONObject(data);
                 FragmentActivity activity = (FragmentActivity) getCurrentActivity();
 
@@ -408,7 +438,10 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                     return;
                 }
 
+                HyperServices hyperServices = getHyperServices(key);
+
                 Intent i = new Intent(activity, ProcessActivity.class);
+                String finalKey = key;
                 ProcessActivity.setActivityCallback(new ActivityCallback() {
                     @Override
                     public void onCreated(@NonNull FragmentActivity fragmentActivity) {
@@ -429,7 +462,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
 
                     @Override
                     public boolean onBackPressed() {
-                        return HyperSdkReactModule.this.onBackPressed();
+                        return HyperSdkReactModule.this.onBackPressed(finalKey);
                     }
 
                     @Override
@@ -455,8 +488,9 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     }
 
     @ReactMethod
-    public void openPaymentPage(String data) {
+    public void openPaymentPage(String data, String key) {
         synchronized (lock) {
+            if (key == null) key ="default";
             try {
                 JSONObject sdkPayload = new JSONObject(data);
                 FragmentActivity activity = (FragmentActivity) getCurrentActivity();
@@ -472,6 +506,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                 }
 
                 Intent i = new Intent(activity, ProcessActivity.class);
+                String finalKey = key;
                 ProcessActivity.setActivityCallback(new ActivityCallback() {
                     @Override
                     public void onCreated(@NonNull FragmentActivity processActivity) {
@@ -483,7 +518,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                                     processActivity.overridePendingTransition(0, android.R.anim.fade_out);
                                     ProcessActivity.setActivityCallback(null);
                                 }
-                                sendEventToJS(data);
+                                sendEventToJS(finalKey,data);
                             }
                         });
                     }
@@ -507,16 +542,32 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
 
 
     @ReactMethod
-    public void terminate() {
+    public void terminate(String key) {
         synchronized (lock) {
+            if (key == null) key = "default";
+            HyperServices hyperServices = getHyperServiceForKey(key);
             if (hyperServices != null) {
                 hyperServices.terminate();
             }
-
-            hyperServices = null;
-            hyperServicesReference = new WeakReference<>(null);
+            servicesHashMap.remove(key);
         }
     }
+
+    @ReactMethod
+    public void terminateAll() {
+        synchronized (lock) {
+            Set<String> keys = servicesHashMap.keySet();
+            for (Object object : keys.toArray()) {
+                try {
+                    String key = (String) object;
+                    terminate(key);
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
 
     @ReactMethod
     public void notifyAboutRegisterComponent(String tag) {
@@ -524,13 +575,17 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
-    public boolean isNull() {
+    public boolean isNull(String key) {
+        if (key == null) key = "default";
+        HyperServices hyperServices = getHyperServiceForKey(key);
         return hyperServices == null;
     }
 
     @ReactMethod
-    public void isInitialised(Promise promise) {
+    public void isInitialised(String key, Promise promise) {
         boolean isInitialized = false;
+        if (key == null) key = "default";
+        HyperServices hyperServices = getHyperServiceForKey(key);
 
         synchronized (lock) {
             if (hyperServices != null) {
@@ -555,7 +610,8 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
     @Override
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
         synchronized (lock) {
-            if (hyperServices == null) {
+
+            if (servicesHashMap == null || servicesHashMap.isEmpty()) {
                 SdkTracker.trackBootLifecycle(
                         LogConstants.SUBCATEGORY_HYPER_SDK,
                         LogConstants.LEVEL_ERROR,
@@ -565,7 +621,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                 return;
             }
 
-            hyperServices.onActivityResult(requestCode, resultCode, data);
+            servicesHashMap.forEach((key,val) ->val.onActivityResult(requestCode, resultCode, data));
         }
     }
 
@@ -580,14 +636,14 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
      */
     private static class RequestPermissionsResultDelegate {
         @NonNull
-        private WeakReference<HyperServices> hyperServicesHolder = new WeakReference<>(null);
+        private WeakReference<HashMap<String,HyperServices>> hyperServicesHolder = new WeakReference<>(null);
 
-        synchronized void set(@NonNull HyperServices hyperServices) {
+        synchronized void set(@NonNull HashMap<String, HyperServices> hyperServices) {
             this.hyperServicesHolder = new WeakReference<>(hyperServices);
         }
 
         void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-            HyperServices hyperServices = hyperServicesHolder.get();
+            HashMap<String,HyperServices> hyperServices = hyperServicesHolder.get();
 
             if (hyperServices == null) {
                 SdkTracker.trackBootLifecycle(
@@ -606,20 +662,21 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                     "onRequestPermissionsResult",
                     "onRequestPermissionsResult() called with: requestCode = [" + requestCode + "], permissions = [" + Arrays.toString(permissions) + "], grantResults = [" + Arrays.toString(grantResults) + "]");
 
-            hyperServices.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            hyperServices.forEach((ele, val) -> val.onRequestPermissionsResult(requestCode, permissions, grantResults));
         }
     }
 
     private static class ActivityResultDelegate {
         @NonNull
-        private WeakReference<HyperServices> hyperServicesHolder = new WeakReference<>(null);
+        private WeakReference<HashMap<String,HyperServices>> hyperServicesHolder = new WeakReference<>(null);
 
-        synchronized void set(@NonNull HyperServices hyperServices) {
+        synchronized void set(@NonNull HashMap<String, HyperServices> hyperServices) {
             this.hyperServicesHolder = new WeakReference<>(hyperServices);
         }
 
+
         void onActivityResult(int requestCode, int resultCode, Intent data) {
-            HyperServices hyperServices = hyperServicesHolder.get();
+            HashMap<String,HyperServices> hyperServices = hyperServicesHolder.get();
 
             if (hyperServices == null) {
                 SdkTracker.trackBootLifecycle(
@@ -638,7 +695,7 @@ public class HyperSdkReactModule extends ReactContextBaseJavaModule implements A
                     "onActivityResult",
                     "onActivityResult() called with: requestCode = [" + requestCode + "], resultCode = [" + resultCode + "], data = [" + data + "]"
             );
-            hyperServices.onActivityResult(requestCode, resultCode, data);
+            hyperServices.forEach((ele, val) -> val.onActivityResult(requestCode, resultCode, data));
         }
     }
 }

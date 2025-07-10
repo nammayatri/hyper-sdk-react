@@ -63,7 +63,7 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
     public void receiveCommand(@NonNull FrameLayout root, int commandId, @Nullable ReadableArray args) {
         receiveCommand(root,Integer.toString(commandId),args);
     }
-    
+
     @Override
     public void receiveCommand(@NonNull FrameLayout root, String commandId, @Nullable ReadableArray args) {
         super.receiveCommand(root, commandId, args);
@@ -87,7 +87,11 @@ public class HyperFragmentViewManager extends ViewGroupManager<FrameLayout> {
                 JSONObject payload = new JSONObject(payloadStr);
                 payload.getJSONObject("payload").put("fragmentViewGroups", fragments);
                 FragmentActivity activity = (FragmentActivity) reactContext.getCurrentActivity();
-                HyperServices hyperServices = HyperSdkReactModule.getHyperServices();
+
+                // arg[2] - key for the HyperService
+                String key = args != null ? args.getString(3) : "default";
+                fragments.put(namespace, rootViewGroup);
+                HyperServices hyperServices = HyperSdkReactModule.getHyperServices(key);
                 if (activity == null) {
                     SdkTracker.trackBootLifecycle(
                         LogConstants.SUBCATEGORY_HYPER_SDK,

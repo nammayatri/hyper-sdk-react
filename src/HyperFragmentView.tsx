@@ -7,12 +7,12 @@
 
 import * as React from 'react';
 import {
-  View,
-  UIManager,
-  findNodeHandle,
-  requireNativeComponent,
-  Platform,
-  DimensionValue,
+    DimensionValue,
+    Platform,
+    UIManager,
+    View,
+    findNodeHandle,
+    requireNativeComponent,
 } from 'react-native';
 
 export interface HyperFragmentViewPropsPub {
@@ -21,6 +21,7 @@ export interface HyperFragmentViewPropsPub {
   triggerProcess: boolean;
   namespace: string;
   payload: string;
+  hyperKey: string;
   onEvent?: (data: HyperEvent) => void;
 }
 
@@ -42,13 +43,13 @@ if (Platform.OS === 'android') {
   );
 }
 
-const createFragment = (viewId: number, namespace: string, payload: string) => {
+const createFragment = (viewId: number, namespace: string, payload: string, key: string) => {
   if (Platform.OS === 'android') {
     UIManager.dispatchViewManagerCommand(
       viewId,
       //@ts-ignore
       UIManager.HyperFragmentViewManager.Commands.process.toString(),
-      [viewId, namespace, payload]
+      [viewId, namespace, payload, key]
     );
   } else {
     const commandId = UIManager.getViewManagerConfig(
@@ -58,6 +59,7 @@ const createFragment = (viewId: number, namespace: string, payload: string) => {
       UIManager.dispatchViewManagerCommand(viewId, commandId, [
         namespace,
         payload,
+        key,
       ]);
     }
   }
@@ -71,7 +73,7 @@ const HyperFragmentView: React.FC<HyperFragmentViewProps> = (
     if (props.triggerProcess) {
     const viewId = findNodeHandle(ref.current);
     if (viewId) {
-        createFragment(viewId, props.namespace, props.payload);
+        createFragment(viewId, props.namespace, props.payload, props.hyperKey);
       }
     }
   }, [props.namespace, props.payload, props.triggerProcess]);

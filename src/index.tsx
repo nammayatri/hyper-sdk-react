@@ -43,16 +43,17 @@ if (Platform.OS === 'ios') {
 type HyperSdkReactType = {
   HyperEvent: string;
   preFetch(data: string): void;
-  createHyperServices(): void;
-  initiate(data: string): void;
-  process(data: string): void;
-  processWithActivity(data: string): void;
-  terminate(): void;
-  onBackPressed(): boolean;
-  isNull(): boolean;
-  isInitialised(): Promise<boolean>;
+  createHyperServices(key: string | null): void;
+  initiate(data: string,key: string | null): void;
+  process(data: string,key: string | null): void;
+  processWithActivity(data: string,key: string | null): void;
+  terminate(key: string | null): void;
+  terminateAll(): void;
+  onBackPressed(key: string | null): boolean;
+  isNull(key: string | null): boolean;
+  isInitialised(key: string | null): Promise<boolean>;
   updateBaseViewController(): void;
-  openPaymentPage(data: string): void;
+  openPaymentPage(data: string,key: string | null): void;
   updateMerchantViewHeight(tag: string, height: number): void;
   notifyAboutRegisterComponent(tag: string): void;
   JuspayHeader: string;
