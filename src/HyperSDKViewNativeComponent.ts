@@ -14,11 +14,11 @@ export type HyperEvent = Readonly<{
   data: Readonly<string>;
 }>;
 
+type ComponentType = HostComponent<NativeProps>;
+
 export default codegenNativeComponent<NativeProps>(
   'HyperSDKView'
 ) as HostComponent<NativeProps>;
-
-type ComponentType = HostComponent<NativeProps>;
 
 // Add NativeCommands interface including trigger as the new
 // fabric native component method

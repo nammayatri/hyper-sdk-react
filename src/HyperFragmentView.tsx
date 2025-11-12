@@ -13,7 +13,11 @@ import {
     View,
     findNodeHandle,
     requireNativeComponent,
+    HostComponent,
 } from 'react-native';
+
+import { NativeProps } from './HyperSDKViewNativeComponent';
+import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
 
 export interface HyperFragmentViewPropsPub {
   height: DimensionValue;
@@ -38,9 +42,9 @@ var HyperFragmentViewManager: any;
 if (Platform.OS === 'android') {
   HyperFragmentViewManager = requireNativeComponent('HyperFragmentViewManager');
 } else {
-  HyperFragmentViewManager = requireNativeComponent(
-    'HyperFragmentViewManagerIOS'
-  );
+  HyperFragmentViewManager = codegenNativeComponent<NativeProps>(
+    'HyperSDKView'
+  ) as HostComponent<NativeProps>;
 }
 
 const createFragment = (viewId: number, namespace: string, payload: string, key: string) => {

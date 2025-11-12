@@ -201,14 +201,14 @@ RCT_EXPORT_METHOD(preFetch:(NSString *)data) {
     }
 }
 
-RCT_EXPORT_METHOD(createHyperServices) {
+RCT_EXPORT_METHOD(createHyperServices:(NSString *)key) {
     if (self.hyperInstance == NULL) {
         self.hyperInstance = [HyperServices new];
         _hyperServicesReference = self.hyperInstance;
     }
 }
 
-RCT_EXPORT_METHOD(initiate:(NSString *)data) {
+RCT_EXPORT_METHOD(initiate:(NSString *)data key:(NSString *)key) {
     if (data && data.length>0) {
         @try {
             NSDictionary *jsonData = [HyperSdkReact stringToDictionary:data];
@@ -235,7 +235,7 @@ RCT_EXPORT_METHOD(initiate:(NSString *)data) {
     }
 }
 
-RCT_EXPORT_METHOD(process:(NSString *)data) {
+RCT_EXPORT_METHOD(process:(NSString *)data key:(NSString *)key) {
     if (data && data.length>0) {
         @try {
             NSDictionary *jsonData = [HyperSdkReact stringToDictionary:data];
@@ -267,21 +267,47 @@ RCT_EXPORT_METHOD(process:(NSString *)data) {
     }
 }
 
-RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(isNull) {
+// RCT_EXPORT_METHOD(processWithActivity:(NSString *)data key:(NSString *)key) {
+//     // iOS doesn't have a separate activity concept like Android
+//     // Calling the regular process method
+//     [self process:data key:key];
+// }
+
+// RCT_EXPORT_METHOD(openPaymentPage:(NSString *)data key:(NSString *)key) {
+//     // Stub implementation for iOS
+//     // This method exists in Android but may not be applicable for iOS
+//     [self process:data key:key];
+// }
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(isNull:(NSString *)key) {
     return self.hyperInstance == NULL? @true : @false;
 }
 
-RCT_EXPORT_METHOD(terminate) {
+// RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(onBackPressed:(NSString *)key) {
+//     // iOS doesn't have a back button concept like Android
+//     // Return false as default
+//     return @false;
+// }
+
+RCT_EXPORT_METHOD(terminate:(NSString *)key) {
     if (_hyperInstance) {
         [_hyperInstance terminate];
     }
 }
 
+// RCT_EXPORT_METHOD(terminateAll) {
+//     // iOS currently only supports single instance
+//     // Calling terminate on the main instance
+//     if (_hyperInstance) {
+//         [_hyperInstance terminate];
+//     }
+// }
+
 RCT_EXPORT_METHOD(notifyAboutRegisterComponent:(NSString *)viewType) {
     [registeredComponents addObject:viewType];
 }
 
-RCT_EXPORT_METHOD(isInitialised:(RCTPromiseResolveBlock)resolve  reject:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(isInitialised:(NSString *)key resolve:(RCTPromiseResolveBlock)resolve  reject:(RCTPromiseRejectBlock)reject) {
     if (self.hyperInstance) {
         resolve(self.hyperInstance.isInitialised? @true : @false);
     } else {
@@ -320,6 +346,10 @@ RCT_EXPORT_METHOD(updateMerchantViewHeight: (NSString * _Nonnull) tag height: (N
     return data;
 }
 
++ (HyperServices *)getHyperInstance {
+  return _hyperServicesReference;
+}
+
 @end
 
 @implementation HyperFragmentViewManagerIOS
@@ -338,7 +368,7 @@ RCT_EXPORT_MODULE()
     return [[UIView alloc] init];
 }
 
-RCT_EXPORT_METHOD(process:(nonnull NSNumber *)viewTag nameSpace:(NSString *)nameSpace payload:(NSString *)payload)
+RCT_EXPORT_METHOD(process:(nonnull NSNumber *)viewTag nameSpace:(NSString *)nameSpace payload:(NSString *)payload key:(NSString *)key)
 {
     HyperServices *hyperServicesInstance = _hyperServicesReference;
     if (payload && payload.length>0) {

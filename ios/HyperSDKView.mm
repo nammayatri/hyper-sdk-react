@@ -9,11 +9,12 @@
 #import "RCTFabricComponentsPlugins.h"
 #import "Utils.h"
 #import <HyperSDK/HyperSDK.h>
+#import "HyperSdkReact.h"
 
 using namespace facebook::react;
 
 @interface HyperSDKView () <RCTHyperSDKViewViewProtocol>
-    @property HyperServices *hyperInstance;
+
     @property id <HyperDelegate> delegate;
 @end
 
@@ -33,9 +34,6 @@ using namespace facebook::react;
     _props = defaultProps;
 
     _view = [[UIView alloc] init];
-      if (self.hyperInstance == NULL) {
-          self.hyperInstance = [HyperServices new];
-      }
 
     self.contentView = _view;
   }
@@ -50,7 +48,7 @@ using namespace facebook::react;
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *payload = [NSString stringWithCString:newViewProps.payload.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    if ([self.hyperInstance isInitialised]) {
+  if ([[HyperSdkReact getHyperInstance] isInitialised]) {
         [self process:_namespace payload:payload];
     } else {
         [self initiate:_namespace payload:payload];
@@ -86,7 +84,7 @@ Class<RCTComponentViewProtocol> HyperSDKViewCls(void)
             if (jsonData && [jsonData isKindOfClass:[NSDictionary class]] && jsonData.allKeys.count>0) {
                 
                 UIViewController *baseViewController = RCTPresentedViewController();
-                [_hyperInstance initiate:baseViewController payload:jsonData callback:^(NSDictionary<NSString *,id> * _Nullable data) {
+              [[HyperSdkReact getHyperInstance] initiate:baseViewController payload:jsonData callback:^(NSDictionary<NSString *,id> * _Nullable data) {
                     NSString* event  = data[@"event"];
                     if ([event isEqualToString:@"initiate_result"]) {
                         [self process:_namespace payload:payload];
@@ -115,7 +113,7 @@ Class<RCTComponentViewProtocol> HyperSDKViewCls(void)
 
 - (void)process:(nonnull NSString *)_namespace payload:(nonnull NSString *)payload {
     NSLog(@"handleCommand %@ %@", _namespace, payload);
-    HyperServices *hyperServicesInstance = self.hyperInstance;
+    HyperServices *hyperServicesInstance = [HyperSdkReact getHyperInstance];
     if (payload && payload.length>0) {
         @try {
             NSDictionary *jsonData = [Utils stringToDictionary:payload];

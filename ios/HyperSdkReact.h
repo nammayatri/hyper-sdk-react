@@ -18,7 +18,7 @@
 #import <HyperSDK/HyperSDK.h>
 @property HyperServices *hyperInstance;
 @property id <HyperDelegate> delegate;
-
++ (HyperServices*)getHyperInstance;
 @end
 
 @interface SdkDelegate : NSObject <HyperDelegate>
