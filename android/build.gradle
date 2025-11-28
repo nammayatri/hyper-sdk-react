@@ -147,5 +147,8 @@ dependencies {
   implementation 'io.grpc:grpc-protobuf-lite:1.61.0' // CURRENT_GRPC_VERSION
   implementation 'io.grpc:grpc-stub:1.61.0' // CURRENT_GRPC_VERSION
   implementation 'org.apache.tomcat:annotations-api:6.0.53'
+
+  // Hybrid SDK Dependencies [DON'T REMOVE]
+  implementation 'in.juspay:hyperqr:2.1.33-nammayatri.22' // QR Generation Library required for zoo, wmb ticketing
 }
 
