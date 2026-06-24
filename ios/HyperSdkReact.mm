@@ -19,16 +19,7 @@
 
 #import <HyperSDK/HyperSDK.h>
 
-// Static reference to the map of instances so that the view managers can fetch an instance by key.
-static NSMutableDictionary<NSString *, HyperServices *> *_hyperServicesReferences;
-
-// Normalises a merchant supplied key. A nil/empty key always maps to "default".
-static NSString *normalizeHyperKey(NSString *key) {
-    if (key == nil || key.length == 0) {
-        return @"default";
-    }
-    return key;
-}
+__weak static HyperServices *_hyperServicesReference;
 
 // Overriding the RCTRootView to add contraints to align with the views superview
 @implementation SDKRootView
@@ -195,34 +186,6 @@ NSString *JUSPAY_FOOTER_ATTACHED = @"JuspayFooterAttached";
     // Remove upstream listeners, stop unnecessary background tasks
 }
 
-// Lazily creates the map holding every HyperServices instance.
-- (NSMutableDictionary<NSString *, HyperServices *> *)hyperInstances {
-    if (_hyperInstances == nil) {
-        _hyperInstances = [[NSMutableDictionary alloc] init];
-        _hyperServicesReferences = _hyperInstances;
-    }
-    return _hyperInstances;
-}
-
-// Lazily creates the map holding the delegate of every instance.
-- (NSMutableDictionary<NSString *, id<HyperDelegate>> *)delegates {
-    if (_delegates == nil) {
-        _delegates = [[NSMutableDictionary alloc] init];
-    }
-    return _delegates;
-}
-
-// Returns the instance registered for the (normalised) key, or nil.
-- (HyperServices *)instanceForKey:(NSString *)key {
-    return [self.hyperInstances objectForKey:normalizeHyperKey(key)];
-}
-
-// Wraps the SDK event as { key, data } (matching Android) and emits it to JS.
-- (void)sendHyperEventForKey:(NSString *)key data:(NSDictionary<NSString *, id> *)data {
-    NSDictionary *wrapped = @{ @"key": normalizeHyperKey(key), @"data": data ?: @{} };
-    [self sendEventWithName:@"HyperEvent" body:[[self class] dictionaryToString:wrapped]];
-}
-
 RCT_EXPORT_METHOD(preFetch:(NSString *)data) {
     if (data && data.length>0) {
         @try {
@@ -239,33 +202,24 @@ RCT_EXPORT_METHOD(preFetch:(NSString *)data) {
 }
 
 RCT_EXPORT_METHOD(createHyperServices:(NSString *)key) {
-    key = normalizeHyperKey(key);
-    if ([self.hyperInstances objectForKey:key] == nil) {
-        HyperServices *instance = [HyperServices new];
-        [self.hyperInstances setObject:instance forKey:key];
-        _hyperServicesReferences = self.hyperInstances;
+    if (self.hyperInstance == NULL) {
+        self.hyperInstance = [HyperServices new];
+        _hyperServicesReference = self.hyperInstance;
     }
 }
 
 RCT_EXPORT_METHOD(initiate:(NSString *)data key:(NSString *)key) {
-    key = normalizeHyperKey(key);
     if (data && data.length>0) {
         @try {
             NSDictionary *jsonData = [HyperSdkReact stringToDictionary:data];
             if (jsonData && [jsonData isKindOfClass:[NSDictionary class]] && jsonData.allKeys.count>0) {
-
-                HyperServices *instance = [self instanceForKey:key];
-                if (instance == nil) {
-                    return;
-                }
+                
                 UIViewController *baseViewController = RCTPresentedViewController();
                 __weak HyperSdkReact *weakSelf = self;
-                // Keep a delegate alive per key so each instance keeps its own merchant views.
-                id<HyperDelegate> delegate = [[SdkDelegate alloc] initWithBridge:self.bridge];
-                [self.delegates setObject:delegate forKey:key];
-                [instance setHyperDelegate:delegate];
-                [instance initiate:baseViewController payload:jsonData callback:^(NSDictionary<NSString *,id> * _Nullable data) {
-                    [weakSelf sendHyperEventForKey:key data:data];
+                self.delegate = [[SdkDelegate alloc] initWithBridge:self.bridge];
+                [_hyperInstance setHyperDelegate: _delegate];
+                [_hyperInstance initiate:baseViewController payload:jsonData callback:^(NSDictionary<NSString *,id> * _Nullable data) {
+                    [weakSelf sendEventWithName:@"HyperEvent" body:[[self class] dictionaryToString:data]];
                 }];
             } else {
                 // Define proper error code and return proper error
@@ -282,42 +236,23 @@ RCT_EXPORT_METHOD(initiate:(NSString *)data key:(NSString *)key) {
 }
 
 RCT_EXPORT_METHOD(process:(NSString *)data key:(NSString *)key) {
-    [self processData:data key:key];
-}
-
-// iOS has no separate activity concept like Android, so processWithActivity maps to process.
-RCT_EXPORT_METHOD(processWithActivity:(NSString *)data key:(NSString *)key) {
-    [self processData:data key:key];
-}
-
-// iOS has no dedicated payment page activity, so openPaymentPage maps to process.
-RCT_EXPORT_METHOD(openPaymentPage:(NSString *)data key:(NSString *)key) {
-    [self processData:data key:key];
-}
-
-// Shared implementation that forwards a process payload to the instance for the given key.
-- (void)processData:(NSString *)data key:(NSString *)key {
-    HyperServices *instance = [self instanceForKey:key];
-    if (instance == nil) {
-        return;
-    }
     if (data && data.length>0) {
         @try {
             NSDictionary *jsonData = [HyperSdkReact stringToDictionary:data];
             // Update baseViewController if it's nil or not in the view hierarchy.
-            if (instance.baseViewController == nil || instance.baseViewController.view.window == nil) {
+            if (self.hyperInstance.baseViewController == nil || self.hyperInstance.baseViewController.view.window == nil) {
                 // Getting topViewController
                 id baseViewController = RCTPresentedViewController();
-
+                
                 // Set the presenting ViewController as baseViewController if the topViewController is RCTModalHostViewController.
                 if ([baseViewController isMemberOfClass:RCTModalHostViewController.class] && [baseViewController presentingViewController]) {
-                    [instance setBaseViewController:[baseViewController presentingViewController]];
+                    [self.hyperInstance setBaseViewController:[baseViewController presentingViewController]];
                 } else {
-                    [instance setBaseViewController:baseViewController];
+                    [self.hyperInstance setBaseViewController:baseViewController];
                 }
             }
             if (jsonData && [jsonData isKindOfClass:[NSDictionary class]] && jsonData.allKeys.count>0) {
-                [instance process:jsonData];
+                [self.hyperInstance process:jsonData];
             } else {
                 // Define proper error code and return proper error
                 // [self sendEventWithName:@"HyperEvent" body:[[self class] dictionaryToString:data]];
@@ -332,62 +267,63 @@ RCT_EXPORT_METHOD(openPaymentPage:(NSString *)data key:(NSString *)key) {
     }
 }
 
+// RCT_EXPORT_METHOD(processWithActivity:(NSString *)data key:(NSString *)key) {
+//     // iOS doesn't have a separate activity concept like Android
+//     // Calling the regular process method
+//     [self process:data key:key];
+// }
+
+// RCT_EXPORT_METHOD(openPaymentPage:(NSString *)data key:(NSString *)key) {
+//     // Stub implementation for iOS
+//     // This method exists in Android but may not be applicable for iOS
+//     [self process:data key:key];
+// }
+
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(isNull:(NSString *)key) {
-    return [self instanceForKey:key] == nil ? @true : @false;
+    return self.hyperInstance == NULL? @true : @false;
 }
 
-// iOS has no hardware back button concept, so always report unhandled.
-RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(onBackPressed:(NSString *)key) {
-    return @false;
-}
+// RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(onBackPressed:(NSString *)key) {
+//     // iOS doesn't have a back button concept like Android
+//     // Return false as default
+//     return @false;
+// }
 
 RCT_EXPORT_METHOD(terminate:(NSString *)key) {
-    key = normalizeHyperKey(key);
-    HyperServices *instance = [self instanceForKey:key];
-    if (instance) {
-        [instance terminate];
+    if (_hyperInstance) {
+        [_hyperInstance terminate];
     }
-    [self.hyperInstances removeObjectForKey:key];
-    [self.delegates removeObjectForKey:key];
 }
 
-RCT_EXPORT_METHOD(terminateAll) {
-    for (NSString *key in [self.hyperInstances.allKeys copy]) {
-        @try {
-            [self terminate:key];
-        } @catch (NSException *exception) {}
-    }
-}
+// RCT_EXPORT_METHOD(terminateAll) {
+//     // iOS currently only supports single instance
+//     // Calling terminate on the main instance
+//     if (_hyperInstance) {
+//         [_hyperInstance terminate];
+//     }
+// }
 
 RCT_EXPORT_METHOD(notifyAboutRegisterComponent:(NSString *)viewType) {
     [registeredComponents addObject:viewType];
 }
 
 RCT_EXPORT_METHOD(isInitialised:(NSString *)key resolve:(RCTPromiseResolveBlock)resolve  reject:(RCTPromiseRejectBlock)reject) {
-    HyperServices *instance = [self instanceForKey:key];
-    if (instance) {
-        resolve(instance.isInitialised? @true : @false);
+    if (self.hyperInstance) {
+        resolve(self.hyperInstance.isInitialised? @true : @false);
     } else {
         resolve(@false);
     }
 }
 
 RCT_EXPORT_METHOD(updateBaseViewController) {
-    // No key is passed for this call, so refresh every initialised instance.
-    UIViewController *presented = RCTPresentedViewController();
-    for (HyperServices *instance in self.hyperInstances.allValues) {
-        if (instance && [instance isInitialised]) {
-            instance.baseViewController = presented;
-        }
+    if (self.hyperInstance && [self.hyperInstance isInitialised]) {
+        self.hyperInstance.baseViewController = RCTPresentedViewController();
     }
 }
 
 RCT_EXPORT_METHOD(updateMerchantViewHeight: (NSString * _Nonnull) tag height: (NSNumber * _Nonnull) h) {
-    // Merchant view module names are shared across instances, so update every delegate.
-    for (id<HyperDelegate> delegate in self.delegates.allValues) {
-        if ([delegate isKindOfClass:[SdkDelegate class]]) {
-            [((SdkDelegate *) delegate) setHeight:h forTag:tag];
-        }
+    if (self.delegate) {
+        [((SdkDelegate *) self.delegate) setHeight:h forTag:tag];
     }
 }
 
@@ -411,11 +347,7 @@ RCT_EXPORT_METHOD(updateMerchantViewHeight: (NSString * _Nonnull) tag height: (N
 }
 
 + (HyperServices *)getHyperInstance {
-  return [self getHyperInstanceForKey:@"default"];
-}
-
-+ (HyperServices *)getHyperInstanceForKey:(NSString *)key {
-  return [_hyperServicesReferences objectForKey:normalizeHyperKey(key)];
+  return _hyperServicesReference;
 }
 
 @end
@@ -438,7 +370,7 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(process:(nonnull NSNumber *)viewTag nameSpace:(NSString *)nameSpace payload:(NSString *)payload key:(NSString *)key)
 {
-    HyperServices *hyperServicesInstance = [HyperSdkReact getHyperInstanceForKey:key];
+    HyperServices *hyperServicesInstance = _hyperServicesReference;
     if (payload && payload.length>0) {
         @try {
             NSDictionary *jsonData = [HyperSdkReact stringToDictionary:payload];

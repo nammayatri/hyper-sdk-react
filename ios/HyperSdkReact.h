@@ -16,14 +16,9 @@
 @interface HyperSdkReact : RCTEventEmitter <RCTBridgeModule>
 
 #import <HyperSDK/HyperSDK.h>
-// Holds every HyperServices instance keyed by the merchant provided key ("default" when none).
-@property (nonatomic, strong) NSMutableDictionary<NSString *, HyperServices *> *hyperInstances;
-// Holds the HyperDelegate created for each instance so that merchant views stay alive per key.
-@property (nonatomic, strong) NSMutableDictionary<NSString *, id<HyperDelegate>> *delegates;
-// Returns the "default" instance. Kept for backward compatibility / fabric view.
+@property HyperServices *hyperInstance;
+@property id <HyperDelegate> delegate;
 + (HyperServices*)getHyperInstance;
-// Returns the instance registered for the given key ("default" when key is nil/empty).
-+ (HyperServices*)getHyperInstanceForKey:(NSString *)key;
 @end
 
 @interface SdkDelegate : NSObject <HyperDelegate>

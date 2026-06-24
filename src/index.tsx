@@ -34,6 +34,12 @@ if (Platform.OS === 'android') {
   };
 }
 
+if (Platform.OS === 'ios') {
+  HyperSdkReact.processWithActivity = (data: string) => {
+    HyperSdkReact.process(data);
+  };
+}
+
 type HyperSdkReactType = {
   HyperEvent: string;
   preFetch(data: string): void;
