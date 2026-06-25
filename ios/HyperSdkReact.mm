@@ -204,6 +204,7 @@ RCT_EXPORT_METHOD(preFetch:(NSString *)data) {
 RCT_EXPORT_METHOD(createHyperServices:(NSString *)key) {
     if (self.hyperInstance == NULL) {
         self.hyperInstance = [HyperServices new];
+        self.hyperInstance.shouldUseViewController = true;
         _hyperServicesReference = self.hyperInstance;
     }
 }
