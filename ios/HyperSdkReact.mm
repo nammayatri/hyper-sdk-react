@@ -14,7 +14,6 @@
 #import <React/RCTUIManager.h>
 #import <React/RCTUtils.h>
 #import <React/RCTEventEmitter.h>
-#import <React/RCTModalHostViewController.h>
 #import <React/RCTRootView.h>
 
 #import <HyperSDK/HyperSDK.h>
@@ -28,6 +27,11 @@ static NSString *normalizeHyperKey(NSString *key) {
         return @"default";
     }
     return key;
+}
+
+static BOOL isModalHostViewController(id viewController) {
+    Class modalHostClass = NSClassFromString(@"RCTModalHostViewController");
+    return modalHostClass != nil && [viewController isMemberOfClass:modalHostClass];
 }
 
 // Overriding the RCTRootView to add contraints to align with the views superview
@@ -310,7 +314,7 @@ RCT_EXPORT_METHOD(openPaymentPage:(NSString *)data key:(NSString *)key) {
                 id baseViewController = RCTPresentedViewController();
 
                 // Set the presenting ViewController as baseViewController if the topViewController is RCTModalHostViewController.
-                if ([baseViewController isMemberOfClass:RCTModalHostViewController.class] && [baseViewController presentingViewController]) {
+                if (isModalHostViewController(baseViewController) && [baseViewController presentingViewController]) {
                     [instance setBaseViewController:[baseViewController presentingViewController]];
                 } else {
                     [instance setBaseViewController:baseViewController];
@@ -446,7 +450,7 @@ RCT_EXPORT_METHOD(process:(nonnull NSNumber *)viewTag nameSpace:(NSString *)name
                 [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
                     if (hyperServicesInstance.baseViewController == nil || hyperServicesInstance.baseViewController.view.window == nil) {
                         id baseViewController = RCTPresentedViewController();
-                        if ([baseViewController isMemberOfClass:RCTModalHostViewController.class] && [baseViewController presentingViewController]) {
+                        if (isModalHostViewController(baseViewController) && [baseViewController presentingViewController]) {
                             [hyperServicesInstance setBaseViewController:[baseViewController presentingViewController]];
                         } else {
                             [hyperServicesInstance setBaseViewController:baseViewController];
