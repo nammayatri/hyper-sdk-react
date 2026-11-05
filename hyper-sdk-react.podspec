@@ -54,8 +54,6 @@ Pod::Spec.new do |s|
       s.dependency "RCTRequired"
       s.dependency "RCTTypeSafety"
       s.dependency "ReactCommon/turbomodule/core"
-      s.dependency "HyperSDK", hyper_sdk_version
     end
   end
-  s.dependency "HyperSDK", hyper_sdk_version
 end
